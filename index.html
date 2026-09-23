@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Habit Tracker</title>
+<style>
+:root{
+  --bg:#f5f4f0; --card:#ffffff; --ink:#1c1b19; --sub:#6b6a66; --line:#e6e4de;
+  --accent:#4a6d5c; --accent-ink:#ffffff; --done:#4a6d5c; --danger:#b0554a;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17171a; --card:#232326; --ink:#f0efe9; --sub:#a3a29c; --line:#34333a; --accent:#7fae98; --accent-ink:#11201a; --done:#7fae98;
+  }
+}
+:root[data-theme="dark"]{ --bg:#17171a; --card:#232326; --ink:#f0efe9; --sub:#a3a29c; --line:#34333a; --accent:#7fae98; --accent-ink:#11201a; --done:#7fae98; }
+*{box-sizing:border-box;}
+html,body{height:100%;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 60px;}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:8px 0 14px;z-index:5;}
+h1{font-size:1.4rem;margin:0 0 2px;}
+.date{color:var(--sub);font-size:.85rem;}
+.progress-wrap{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
+.progress-top{display:flex;justify-content:space-between;font-size:.8rem;color:var(--sub);margin-bottom:6px;}
+.bar{height:8px;border-radius:6px;background:var(--line);overflow:hidden;}
+.bar-fill{height:100%;background:var(--done);border-radius:6px;transition:width .25s ease;}
+.stack{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:16px;overflow:hidden;}
+.stack.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;}
+.stack-head{display:flex;align-items:center;gap:8px;padding:12px 12px 8px;}
+.handle{cursor:grab;color:var(--sub);font-size:1.1rem;user-select:none;padding:2px 4px;}
+.stack-title{flex:1;font-weight:600;font-size:1rem;background:none;border:none;color:var(--ink);outline:none;border-bottom:1px dashed transparent;padding:2px 0;}
+.stack-title:focus{border-color:var(--line);}
+.icon-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:8px;}
+.icon-btn:hover{background:var(--line);}
+.habits{list-style:none;margin:0;padding:0 8px 8px;}
+.habit{display:flex;align-items:flex-start;gap:8px;padding:8px 6px;border-radius:10px;}
+.habit.dragging{opacity:.35;}
+.habit.drag-over-top{box-shadow:inset 0 2px 0 var(--accent);}
+.habit.drag-over-bottom{box-shadow:inset 0 -2px 0 var(--accent);}
+.habit .handle{margin-top:6px;}
+.chk{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--done);cursor:pointer;}
+.htext{flex:1;min-width:0;outline:none;padding:4px 6px;border-radius:8px;line-height:1.35;font-size:.95rem;overflow-wrap:anywhere;}
+.htext:focus{background:var(--line);}
+.habit.done .htext{color:var(--sub);text-decoration:line-through;}
+.del{color:var(--sub);background:none;border:none;cursor:pointer;font-size:1rem;padding:4px 6px;flex:none;}
+.del:hover{color:var(--danger);}
+.add-habit{margin:4px 8px 10px;background:none;border:1px dashed var(--line);color:var(--sub);border-radius:10px;padding:8px;width:calc(100% - 16px);cursor:pointer;font-size:.85rem;}
+.add-habit:hover{color:var(--ink);border-color:var(--accent);}
+.add-stack{margin-top:16px;width:100%;background:var(--accent);color:var(--accent-ink);border:none;border-radius:14px;padding:12px;font-size:.95rem;font-weight:600;cursor:pointer;}
+.footer-note{text-align:center;color:var(--sub);font-size:.75rem;margin-top:22px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Daily Habits</h1>
+    <div class="date" id="dateLabel"></div>
+    <div class="progress-wrap">
+      <div class="progress-top"><span id="progressText">0 / 0 done</span><span id="progressPct">0%</span></div>
+      <div class="bar"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+    </div>
+  </header>
+  <div id="stacks"></div>
+  <button class="add-stack" id="addStackBtn">+ Add habit stack</button>
+  <div class="footer-note">Drag the ≡ handles to reorder. Tap any text to edit it.</div>
+  <div class="footer-note">©️2026 All rights reserved Samuel Oyetunji(Samtech).</div>
+</div>
+
+<script id="data-store" type="application/json">
+{"stacks":[
+ {"id":"s0","title":"Opportune Habit","habits":[
+   {"id":"h0","text":"Listen to podcasts anytime I can — whenever I'm less busy or tired."}
+ ]},
+ {"id":"s1","title":"Habit Stack 1 — Morning Start","habits":[
+   {"id":"h1","text":"When my alarm rings at 4:00 AM, get off bed immediately, no remedy."},
+   {"id":"h2","text":"After getting out of bed, put on the slippers placed beside the bed the night before."},
+   {"id":"h3","text":"After putting on slippers, pray."},
+   {"id":"h4","text":"After praying, make the bed."},
+   {"id":"h5","text":"Go straight to the bathroom and brush teeth."}
+ ]},
+ {"id":"s2","title":"Habit Stack 2 — Quiet Time & Chores","habits":[
+   {"id":"h6","text":"After making the bed, place phone away on the desk."},
+   {"id":"h7","text":"After putting phone away, sit quietly for 5–10 minutes with no distractions — quiet time."},
+   {"id":"h8","text":"After quiet time, do all necessary work at home and leave the house by 9:00 AM latest."}
+ ]},
+ {"id":"s3","title":"Habit Stack 3 — Library Focus","habits":[
+   {"id":"h9","text":"Get to the library and arrange setup."},
+   {"id":"h10","text":"After settling down, check only important messages that need urgent attention."},
+   {"id":"h11","text":"Round up everything and start reading by 11:00 AM latest."},
+   {"id":"h12","text":"Take a final break from reading by 5:00 PM."},
+   {"id":"h13","text":"Pack up stuff and head out."}
+ ]}
+],"completions":{}}
+</script>
+
+<script>
+let DATA = JSON.parse(document.getElementById('data-store').textContent);
+let claudeArtifact = null;
+try {
+  if (window.claude && window.claude.use) {
+    claude.use("artifact").then(function(a){ claudeArtifact = a; }).catch(function(){});
+  }
+} catch(e) {}
+
+function todayKey(){
+  var d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');
+}
+function uid(){ return 'id'+Math.random().toString(36).slice(2,9); }
+
+function saveLocal(){
+  try{ localStorage.setItem('habit-tracker-data', JSON.stringify(DATA)); }catch(e){}
+}
+function loadLocal(){
+  try{
+    var raw = localStorage.getItem('habit-tracker-data');
+    if(raw) DATA = JSON.parse(raw);
+  }catch(e){}
+}
+function persist(){
+  saveLocal();
+  var store = document.getElementById('data-store');
+  if(store) store.textContent = JSON.stringify(DATA);
+  if(claudeArtifact){
+    try{
+      var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      claudeArtifact.publish(html).catch(function(){});
+    }catch(e){}
+  }
+}
+
+function escapeHtml(s){ return (s||'').replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+
+/* ---- native drag & drop for habit items within/between stacks ---- */
+var draggedHabitLi = null;
+function attachHabitDrag(li){
+  li.querySelector('.handle').addEventListener('mousedown', function(){ li.setAttribute('draggable','true'); });
+  li.querySelector('.handle').addEventListener('touchstart', function(){ li.setAttribute('draggable','true'); }, {passive:true});
+  li.addEventListener('dragstart', function(e){
+    draggedHabitLi = li;
+    li.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try{ e.dataTransfer.setData('text/plain', li.dataset.id); }catch(err){}
+  });
+  li.addEventListener('dragend', function(){
+    li.classList.remove('dragging');
+    li.removeAttribute('draggable');
+    document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(function(el){
+      el.classList.remove('drag-over-top','drag-over-bottom');
+    });
+    draggedHabitLi = null;
+    syncOrderFromDOM();
+  });
+  li.addEventListener('dragover', function(e){
+    e.preventDefault();
+    if(!draggedHabitLi || draggedHabitLi===li) return;
+    var rect = li.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height/2;
+    li.classList.toggle('drag-over-top', before);
+    li.classList.toggle('drag-over-bottom', !before);
+  });
+  li.addEventListener('dragleave', function(){
+    li.classList.remove('drag-over-top','drag-over-bottom');
+  });
+  li.addEventListener('drop', function(e){
+    e.preventDefault();
+    if(!draggedHabitLi || draggedHabitLi===li) return;
+    var rect = li.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height/2;
+    li.parentNode.insertBefore(draggedHabitLi, before ? li : li.nextSibling);
+    li.classList.remove('drag-over-top','drag-over-bottom');
+  });
+}
+function attachListDrop(ul){
+  ul.addEventListener('dragover', function(e){ e.preventDefault(); });
+  ul.addEventListener('drop', function(e){
+    e.preventDefault();
+    if(draggedHabitLi && ul.children.length===0){ ul.appendChild(draggedHabitLi); }
+  });
+}
+var draggedStackEl = null;
+function attachStackDrag(stackEl, headHandle){
+  headHandle.addEventListener('mousedown', function(){ stackEl.setAttribute('draggable','true'); });
+  headHandle.addEventListener('touchstart', function(){ stackEl.setAttribute('draggable','true'); }, {passive:true});
+  stackEl.addEventListener('dragstart', function(e){
+    if(e.target.closest('.habit')) return;
+    draggedStackEl = stackEl;
+    e.dataTransfer.effectAllowed='move';
+    try{ e.dataTransfer.setData('text/plain', stackEl.dataset.id); }catch(err){}
+  });
+  stackEl.addEventListener('dragend', function(){
+    stackEl.removeAttribute('draggable');
+    document.querySelectorAll('.stack.drag-over').forEach(function(el){ el.classList.remove('drag-over'); });
+    draggedStackEl = null;
+    syncOrderFromDOM();
+  });
+  stackEl.addEventListener('dragover', function(e){
+    if(!draggedStackEl || draggedStackEl===stackEl) return;
+    if(e.target.closest('.habit') || e.target.closest('.habits')) return;
+    e.preventDefault();
+    stackEl.classList.add('drag-over');
+  });
+  stackEl.addEventListener('dragleave', function(e){
+    if(e.target===stackEl) stackEl.classList.remove('drag-over');
+  });
+  stackEl.addEventListener('drop', function(e){
+    if(!draggedStackEl || draggedStackEl===stackEl) return;
+    if(e.target.closest('.habit') || e.target.closest('.habits')) return;
+    e.preventDefault();
+    var rect = stackEl.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height/2;
+    stackEl.parentNode.insertBefore(draggedStackEl, before ? stackEl : stackEl.nextSibling);
+    stackEl.classList.remove('drag-over');
+  });
+}
+
+function syncOrderFromDOM(){
+  var stackEls = Array.prototype.slice.call(document.querySelectorAll('.stack'));
+  var newStacks = stackEls.map(function(se){
+    var stackId = se.dataset.id;
+    var stack = DATA.stacks.find(function(s){ return s.id===stackId; });
+    var habitEls = Array.prototype.slice.call(se.querySelectorAll('.habit'));
+    var newHabits = habitEls.map(function(he){
+      var hid = he.dataset.id;
+      for(var i=0;i<DATA.stacks.length;i++){
+        var found = DATA.stacks[i].habits.find(function(h){ return h.id===hid; });
+        if(found) return found;
+      }
+    }).filter(Boolean);
+    stack.habits = newHabits;
+    return stack;
+  });
+  DATA.stacks = newStacks;
+  persist();
+  render();
+}
+
+function render(){
+  var key = todayKey();
+  document.getElementById('dateLabel').textContent = new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+  var done = DATA.completions[key] || {};
+  var container = document.getElementById('stacks');
+  container.innerHTML = '';
+  var total=0, completed=0;
+
+  DATA.stacks.forEach(function(stack){
+    var stackEl = document.createElement('div');
+    stackEl.className='stack';
+    stackEl.dataset.id=stack.id;
+
+    var head = document.createElement('div');
+    head.className='stack-head';
+    head.innerHTML = '<span class="handle stack-handle">≡</span>'+
+      '<input class="stack-title" value="'+escapeAttr(stack.title)+'">'+
+      '<button class="icon-btn del-stack" title="Delete stack">✕</button>';
+    stackEl.appendChild(head);
+
+    head.querySelector('.stack-title').addEventListener('change', function(e){
+      stack.title = e.target.value; persist();
+    });
+    head.querySelector('.del-stack').addEventListener('click', function(){
+      if(confirm('Delete this whole stack?')){
+        DATA.stacks = DATA.stacks.filter(function(s){ return s.id!==stack.id; });
+        persist(); render();
+      }
+    });
+
+    var ul = document.createElement('ul');
+    ul.className='habits';
+    ul.dataset.stackId = stack.id;
+    attachListDrop(ul);
+
+    stack.habits.forEach(function(h){
+      total++;
+      var isDone = !!done[h.id];
+      if(isDone) completed++;
+      var li = document.createElement('li');
+      li.className='habit'+(isDone?' done':'');
+      li.dataset.id=h.id;
+      li.innerHTML = '<span class="handle">≡</span>'+
+        '<input type="checkbox" class="chk" '+(isDone?'checked':'')+'>'+
+        '<div class="htext" contenteditable="true">'+escapeHtml(h.text)+'</div>'+
+        '<button class="del" title="Delete">✕</button>';
+
+      li.querySelector('.chk').addEventListener('change', function(e){
+        var k = todayKey();
+        if(!DATA.completions[k]) DATA.completions[k]={};
+        if(e.target.checked) DATA.completions[k][h.id]=true;
+        else delete DATA.completions[k][h.id];
+        persist(); render();
+      });
+      li.querySelector('.htext').addEventListener('blur', function(e){
+        h.text = e.target.textContent.trim(); persist();
+      });
+      li.querySelector('.del').addEventListener('click', function(){
+        stack.habits = stack.habits.filter(function(x){ return x.id!==h.id; });
+        persist(); render();
+      });
+      attachHabitDrag(li);
+      ul.appendChild(li);
+    });
+    stackEl.appendChild(ul);
+
+    var addBtn = document.createElement('button');
+    addBtn.className='add-habit';
+    addBtn.textContent='+ Add step to this stack';
+    addBtn.addEventListener('click', function(){
+      stack.habits.push({id:uid(), text:'New step'});
+      persist(); render();
+    });
+    stackEl.appendChild(addBtn);
+
+    attachStackDrag(stackEl, head.querySelector('.stack-handle'));
+    container.appendChild(stackEl);
+  });
+
+  document.getElementById('progressText').textContent = completed+' / '+total+' done';
+  document.getElementById('progressPct').textContent = (total? Math.round(completed/total*100):0)+'%';
+  document.getElementById('barFill').style.width = (total? (completed/total*100):0)+'%';
+}
+
+document.getElementById('addStackBtn').addEventListener('click', function(){
+  DATA.stacks.push({id:uid(), title:'New Habit Stack', habits:[{id:uid(), text:'New step'}]});
+  persist(); render();
+});
+
+loadLocal();
+render();
+</script>
+</body>
+</html>
